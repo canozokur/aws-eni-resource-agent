@@ -1,4 +1,4 @@
-Before everyting, I want to thank @moomindani for his hard work. This resource agent is based on his work.
+I want to thank @moomindani for his hard work. This resource agent is based on his work.
 
 # aws-eni-resource-agent
 
