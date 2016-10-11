@@ -1,3 +1,5 @@
+Before everyting, I want to thank @moomindani for his hard work. This resource agent is based on his work.
+
 # aws-eni-resource-agent
 
 Resource Agent for AWS EC2 ENI for Pacemaker
@@ -6,15 +8,16 @@ This resource agent script is intended for use with Amazon EC2 instances running
 
 The scripts have been tested on the following Amazon Machine Images (AMIs) version:
 
-* Red Hat Enterprise Linux 6.5
+* CentOS 7
 
 The scripts have been tested on the following Pacemaker version:
 
-* Pacemaker 1.0.13-1.2
+* Pacemaker 1.1.13-10.el7_2.4
 
 ## Prerequisites
 
 This script requires [AWS Command Line Interface](http://aws.amazon.com/cli/).
+Also you'll need the "jq" package from EPEL repo and "wget" from standart repos.
 
 ### Install AWS Command Line Interface
 
@@ -29,9 +32,11 @@ To install awscli, use pip:
 pip install awscli
 ```
 
+Don't forget to configure it!
+
 ## Getting Started
 
-Download "eni" or clone repository: 
+Download "eni" or clone repository:
 
 ```
 git clone https://github.com/moomindani/aws-eni-resource-agent.git
@@ -46,7 +51,7 @@ chown root:root /usr/lib/ocf/resource.d/heartbeat/eni
 chmod 0755 /usr/lib/ocf/resource.d/heartbeat/eni
 ```
 
-After setting up pacemaker, configure crm setting to make eni resource agent ready. 
+After setting up pacemaker, configure crm setting to make eni resource agent ready.
 Here's an example setting:
 
 ```
@@ -54,7 +59,7 @@ property \
     no-quorum-policy="ignore" \
     stonith-enabled="false" \
     crmd-transition-delay="0s"
- 
+
 primitive eni ocf:heartbeat:eni \
     params \
         interface_id="eni-2a718a5d" \
@@ -81,4 +86,3 @@ gateway                    | The gateway of the device for the network interface
 wait                       | The wait time after starting and stopping interface in order to handle delay.
 table_id                   | The table id for multi homing.
 table_priority             | The table priority for multi homing.
-
