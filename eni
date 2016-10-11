@@ -128,7 +128,7 @@ END
 eni_start() {
     eni_monitor
     if [ $? =  $OCF_SUCCESS ]; then
-	return $OCF_SUCCESS
+	     return $OCF_SUCCESS
     fi
     /usr/bin/aws ec2 attach-network-interface --network-interface-id ${OCF_RESKEY_interface_id} --instance-id ${instance_id} --device-index ${OCF_RESKEY_device_index}
     sleep ${OCF_RESKEY_wait}
