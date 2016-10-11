@@ -41,7 +41,7 @@ meta_data() {
 <version>1.0</version>
 
 <longdesc lang="en">
-This is a Resource Agent for AWS EC2 ENI (Elastic IP Address). 
+This is a Resource Agent for AWS EC2 ENI (Elastic IP Address).
 </longdesc>
 <shortdesc lang="en">AWS EC2 EIP resource agent</shortdesc>
 
@@ -133,18 +133,34 @@ eni_start() {
     /usr/bin/aws ec2 attach-network-interface --network-interface-id ${OCF_RESKEY_interface_id} --instance-id ${instance_id} --device-index ${OCF_RESKEY_device_index}
     sleep ${OCF_RESKEY_wait}
 
-    private_ip=`ifconfig ${OCF_RESKEY_device_name} | grep "inet addr:" | awk -F: '{ print $2 }' | awk '{ print $1 }'`
-    ip rule add from ${private_ip} table ${OCF_RESKEY_table_id} prio ${OCF_RESKEY_table_priority}
-    ip route add via ${OCF_RESKEY_gateway} dev ${OCF_RESKEY_device_name} src ${private_ip} table ${OCF_RESKEY_table_id}
+    private_ip=$(/usr/bin/aws ec2 describe-network-interfaces \
+    --network-interface-ids ${OCF_RESKEY_interface_id} \
+    | jq '.NetworkInterfaces[0].PrivateIpAddresses[] | select (.Primary == true)' \
+    | jq '.PrivateIpAddress')/32
+    private_ip=$(echo ${private_ip} | tr -d '"')
+    ip link set ${OCF_RESKEY_device_name} up
+    /sbin/dhclient -H ${HOSTNAME} -q -lf /var/lib/dhclient/dhclient--${OCF_RESKEY_device_name}.lease -pf /var/run/dhclient-${OCF_RESKEY_device_name}.pid ${OCF_RESKEY_device_name}
+    ip rule add from ${private_ip} lookup eth1_rt
+    ip rule add from all to ${private_ip} lookup eth1_rt
+    ip route add default via ${OCF_RESKEY_gateway} dev ${OCF_RESKEY_device_name} table ${OCF_RESKEY_table_id}
+    ip route flush cache
 }
 
 eni_stop() {
+    private_ip=$(/usr/bin/aws ec2 describe-network-interfaces \
+    --network-interface-ids ${OCF_RESKEY_interface_id} \
+    | jq '.NetworkInterfaces[0].PrivateIpAddresses[] | select (.Primary == true)' \
+    | jq '.PrivateIpAddress')/32
+    private_ip=$(echo ${private_ip} | tr -d '"')
     eni_monitor
     if [ $? =  $OCF_SUCCESS ]; then
-        ip rule del table ${OCF_RESKEY_table_id}
+        ip rule delete table ${OCF_RESKEY_table_id}
+        ip rule delete from ${private_ip} table eth1_rt
+        ip rule delete from all to ${private_ip} table eth1_rt
         attachment_id=`/usr/bin/aws ec2 describe-network-interfaces --network-interface-ids ${OCF_RESKEY_interface_id} --filter "Name=attachment.instance-id, Values=${instance_id}" --output json | grep \"AttachmentId\": | sed -e 's/'.*\"AttachmentId\"':\s\"\(.*\)\"\,\s$/\1/'`
-        /usr/bin/aws ec2 detach-network-interface --attachment-id ${attachment_id} 
+        /usr/bin/aws ec2 detach-network-interface --attachment-id ${attachment_id}
         sleep ${OCF_RESKEY_wait}
+        pkill -F /var/run/dhclient-${OCF_RESKEY_device_name}.pid
     fi
     return $OCF_SUCCESS
 }
@@ -181,4 +197,3 @@ esac
 rc=$?
 ocf_log debug "${OCF_RESOURCE_INSTANCE} $__OCF_ACTION : $rc"
 exit $rc
-
