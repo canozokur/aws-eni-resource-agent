@@ -130,14 +130,19 @@ eni_start() {
     if [ $? =  $OCF_SUCCESS ]; then
 	     return $OCF_SUCCESS
     fi
+    attachment_id=$(/usr/bin/aws ec2 describe-network-interfaces --network-interface-ids ${OCF_RESKEY_interface_id} | jq '.NetworkInterfaces[0].Attachment.AttachmentId' | xargs)
+    if [ $attachment_id != "null" ]; then
+      /usr/bin/aws ec2 detach-network-interface --attachment-id ${attachment_id} --force
+      sleep ${OCF_RESKEY_wait}
+    fi
     /usr/bin/aws ec2 attach-network-interface --network-interface-id ${OCF_RESKEY_interface_id} --instance-id ${instance_id} --device-index ${OCF_RESKEY_device_index}
     sleep ${OCF_RESKEY_wait}
 
     private_ip=$(/usr/bin/aws ec2 describe-network-interfaces \
     --network-interface-ids ${OCF_RESKEY_interface_id} \
     | jq '.NetworkInterfaces[0].PrivateIpAddresses[] | select (.Primary == true)' \
-    | jq '.PrivateIpAddress')/32
-    private_ip=$(echo ${private_ip} | tr -d '"')
+    | jq '.PrivateIpAddress' | xargs)
+    private_ip="${private_ip}/32"
     ip link set ${OCF_RESKEY_device_name} up
     /sbin/dhclient -H ${HOSTNAME} -q -lf /var/lib/dhclient/dhclient--${OCF_RESKEY_device_name}.lease -pf /var/run/dhclient-${OCF_RESKEY_device_name}.pid ${OCF_RESKEY_device_name}
     ip rule add from ${private_ip} lookup eth1_rt
